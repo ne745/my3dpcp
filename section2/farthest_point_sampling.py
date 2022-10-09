@@ -12,14 +12,13 @@ def farthest_point_sampling(pcd, num_samples, metrics=l2_norm):
     indices = np.zeros(num_samples, dtype=np.int32)
     points = np.asarray(pcd.points)
     distance = np.zeros((num_samples, points.shape[0]), dtype=np.float32)
+    min_distance = np.ones(points.shape[0]) * np.inf
 
-    indices[0] = np.random.randint(len(points))
-    farthest_point = points[indices[0]]
-    distance[0, :] = metrics(farthest_point, points)
-    min_distance = distance[0, :]
-
-    for i in range(1, num_samples):
-        indices[i] = np.argmax(min_distance)
+    for i in range(num_samples):
+        if i == 0:
+            indices[i] = np.random.randint(len(points))
+        else:
+            indices[i] = np.argmax(min_distance)
         farthest_point = points[indices[i]]
         distance[i, :] = metrics(farthest_point, points)
         min_distance = np.minimum(min_distance, distance[i, :])
