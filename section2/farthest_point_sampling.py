@@ -15,14 +15,14 @@ def farthest_point_sampling(pcd, num_samples, metrics=l2_norm):
     distance = np.zeros((num_samples, points.shape[0]), dtype=np.float32)
     min_distance = np.ones(points.shape[0]) * np.inf
 
-    for i in range(num_samples):
-        if i == 0:
-            indices[i] = 0  # np.random.randint(len(points))
-        else:
-            indices[i] = np.argmax(min_distance)
-        farthest_point = points[indices[i]]
+    indices[0] = 0  # np.random.randint(len(points))
+    farthest_point = points[indices[0]]
+    for i in range(1, num_samples):
         distance[i, :] = metrics(farthest_point, points)
         min_distance = np.minimum(min_distance, distance[i, :])
+
+        indices[i] = np.argmax(min_distance)
+        farthest_point = points[indices[i]]
 
     pcd = pcd.select_by_index(indices)
     return pcd
@@ -35,16 +35,10 @@ def my_farthest_point_sampling(pcd, num_samples, metrics=l2_norm):
     remained_points_idx = np.arange(points.shape[0])
     min_distance = np.ones_like(remained_points_idx) * np.inf
 
-    for i in range(num_samples):
-        if i == 0:
-            selected = 0  # np.random.randint(len(points))
-        else:
-            # 各点からの最小距離のうち最大となる点をサンプリング点として選択
-            selected = np.argmax(min_distance)
-        # サンプリング点の保存
-        indices[i] = remained_points_idx[selected]
-        farthest_point = points[selected]
-
+    selected = 0  # np.random.randint(len(points))
+    indices[0] = remained_points_idx[selected]
+    farthest_point = points[selected]
+    for i in range(1, num_samples):
         remained_points_idx = np.delete(remained_points_idx, selected)
         min_distance = np.delete(min_distance, selected)
         points = np.delete(points, selected, axis=0)
@@ -54,6 +48,13 @@ def my_farthest_point_sampling(pcd, num_samples, metrics=l2_norm):
 
         # 各点からの最小距離の計算
         min_distance = np.minimum(distance, min_distance)
+
+        # 各点からの最小距離のうち最大となる点をサンプリング点として選択
+        selected = np.argmax(min_distance)
+
+        # サンプリング点の保存
+        indices[i] = remained_points_idx[selected]
+        farthest_point = points[selected]
 
     pcd = pcd.select_by_index(indices)
     return pcd
