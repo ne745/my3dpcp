@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "python.autoComplete.extraPaths": [
+        "./venv/lib/python3.9/site-packages",
+    ],
+    "python.analysis.extraPaths": [
+        "./venv/lib/python3.9/site-packages",
+    ],
+}
