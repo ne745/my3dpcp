@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import open3d as o3d
 
@@ -87,8 +89,18 @@ def main():
 
     eigen_val, eigen_vec = np.linalg.eig(Q)
     rot = quaternion2rotation(eigen_vec[:, np.argmax(eigen_val)])
-
     trans = mu_y - np.dot(rot, mu_src)
+
+    # 点群の更新
+    transformation = np.identity(4)
+    transformation[0:3, 0:3] = rot.copy()
+    transformation[0:3, 3] = trans.copy()
+
+    pcd_dst = copy.deepcopy(pcd_src_dwn)
+    pcd_dst.transform(transformation)
+    pcd_dst.paint_uniform_color([1.0, 0.0, 0.0])
+
+    o3d.visualization.draw_geometries([pcd_src_dwn, pcd_trg_dwn, pcd_dst])
 
 
 if __name__ == '__main__':
