@@ -48,11 +48,9 @@ def main():
 
     pcd_src_dwn.paint_uniform_color([0.0, 1.0, 0.0])
     pcd_trg_dwn.paint_uniform_color([0.0, 0.0, 1.0])
-    o3d.visualization.draw_geometries([pcd_src_dwn, pcd_trg_dwn])
 
-    q = np.array([1, 0, 0, 0, 0, 0, 0], dtype=float)
-    rot = quaternion2rotation(q)
-    print(rot)
+    np_pcd_trg = np.asarray(pcd_trg_dwn.points)
+    np_pcd_src = np.asarray(pcd_src_dwn.points)
 
     # ソース点群とターゲット点群の対応付け
     pcd_tree = o3d.geometry.KDTreeFlann(pcd_trg_dwn)
@@ -61,12 +59,36 @@ def main():
     for p in pcd_src_dwn.points:
         [_, idx, _] = pcd_tree.search_knn_vector_3d(p, 1)
         idx_list.append(idx[0])
-
-    np_pcd_trg = np.asarray(pcd_trg_dwn.points)
     np_pcd_y = np_pcd_trg[idx_list].copy()
 
-    line_set = GetCorrespondenceLines(pcd_src_dwn, pcd_trg_dwn, idx_list)
-    o3d.visualization.draw_geometries([pcd_src_dwn, pcd_trg_dwn, line_set])
+    # 対応付けの可視化
+    # line_set = GetCorrespondenceLines(pcd_src_dwn, pcd_trg_dwn, idx_list)
+    # o3d.visualization.draw_geometries([pcd_src_dwn, pcd_trg_dwn, line_set])
+
+    # 剛体変換の推定
+    mu_src = np_pcd_src.mean(axis=0)
+    mu_y = np_pcd_y.mean(axis=0)
+
+    covar = np.zeros((3, 3))
+    for p_s, p_y in zip(np_pcd_src, np_pcd_y):
+        covar += np.dot(p_s.reshape(-1, 1), p_y.reshape(1, -1))
+    covar /= np_pcd_src.shape[0]
+    covar -= np.dot(mu_src.reshape(-1, 1), mu_y.reshape(1, -1))
+
+    A = covar - covar.T
+    delta = np.array([A[1, 2], A[2, 0], A[0, 1]])
+    tr_covar = np.trace(covar)
+
+    Q = np.zeros((4, 4))
+    Q[0, 0] = tr_covar
+    Q[0, 1:4] = delta
+    Q[1:4, 0] = delta
+    Q[1:4, 1:4] = covar + covar.T - tr_covar * np.identity(3)
+
+    eigen_val, eigen_vec = np.linalg.eig(Q)
+    rot = quaternion2rotation(eigen_vec[:, np.argmax(eigen_val)])
+
+    trans = mu_y - np.dot(rot, mu_src)
 
 
 if __name__ == '__main__':
