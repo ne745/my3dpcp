@@ -12,6 +12,8 @@ class ICP_Registration_Point2Point:
         self.np_pcd_trg = np.asarray(self.pcd_trg.points)
         self.pcd_tree = o3d.geometry.KDTreeFlann(self.pcd_trg)
 
+        self.num_iteration = 10
+
     def quaternion2rotation(self, q):
         rot = np.array([
             [q[0] ** 2 + q[1] ** 2 - q[2] ** 2 - q[3] ** 2,
@@ -92,15 +94,15 @@ class ICP_Registration_Point2Point:
         return transformation
 
     def registration(self):
-        np_pcd_y = self.find_closest_points()
-        transformation = self.compute_registration_param(np_pcd_y)
+        pcd_b = copy.deepcopy(self.pcd_src)
+        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+        for it in range(self.num_iteration):
+            np_pcd_y = self.find_closest_points()
+            transformation = self.compute_registration_param(np_pcd_y)
+            self.pcd_src.transform(transformation)
 
-        pcd_dst = copy.deepcopy(self.pcd_src)
-        pcd_dst.transform(transformation)
-        pcd_dst.paint_uniform_color([1.0, 0.0, 0.0])
-
-        o3d.visualization.draw_geometries(
-            [self.pcd_src, self.pcd_trg, pcd_dst])
+        pcd_b.paint_uniform_color([1.0, 0.0, 0.0])
+        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg, pcd_b])
 
 
 def main():
