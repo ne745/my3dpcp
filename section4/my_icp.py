@@ -13,6 +13,10 @@ class ICP_Registration_Point2Point:
         self.pcd_tree = o3d.geometry.KDTreeFlann(self.pcd_trg)
 
         self.num_iteration = 10
+        self.distance = []
+        self.th_distance = 0.001
+        self.th_ratio = 0.999
+
 
     def quaternion2rotation(self, q):
         rot = np.array([
@@ -49,10 +53,14 @@ class ICP_Registration_Point2Point:
     def find_closest_points(self):
         # ソース点群とターゲット点群の対応付け
         idx_list = []
+        distance = []
         for p in self.pcd_src.points:
-            [_, idx, _] = self.pcd_tree.search_knn_vector_3d(p, 1)
+            [_, idx, d] = self.pcd_tree.search_knn_vector_3d(p, 1)
             idx_list.append(idx[0])
+            distance.append(d[0])
         np_pcd_y = self.np_pcd_trg[idx_list].copy()
+
+        self.distance.append(np.sqrt(np.mean(np.array(distance))))
 
         # # 対応付けの可視化
         # line_set = self.get_correspondence_lines(idx_list)
@@ -96,12 +104,19 @@ class ICP_Registration_Point2Point:
     def registration(self):
         pcd_b = copy.deepcopy(self.pcd_src)
         o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+
         for it in range(self.num_iteration):
             np_pcd_y = self.find_closest_points()
             transformation = self.compute_registration_param(np_pcd_y)
             self.pcd_src.transform(transformation)
 
-        pcd_b.paint_uniform_color([1.0, 0.0, 0.0])
+            if it > 2:
+                if self.distance[-1] < self.th_distance:
+                    break
+                if self.distance[-1] / self.distance[-2] > self.th_ratio:
+                    break
+
+        self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
         o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg, pcd_b])
 
 
