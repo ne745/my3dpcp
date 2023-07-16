@@ -1,4 +1,5 @@
 import copy
+import time
 
 import numpy as np
 import open3d as o3d
@@ -6,6 +7,7 @@ import open3d as o3d
 
 class ICP_Registration_Point2Point:
     def __init__(self, pcd_src, pcd_trg):
+        self.pcd_before = copy.deepcopy(pcd_src)
         self.pcd_src = copy.deepcopy(pcd_src)
         self.pcd_trg = copy.deepcopy(pcd_trg)
         self.np_pcd_src = np.asarray(self.pcd_src.points)
@@ -16,6 +18,10 @@ class ICP_Registration_Point2Point:
         self.distance = []
         self.th_distance = 0.001
         self.th_ratio = 0.999
+
+        # 過程表示用
+        self.transformations = []
+        self.closest_indices = []
 
     def quaternion2rotation(self, q):
         rot = np.array([
@@ -33,9 +39,11 @@ class ICP_Registration_Point2Point:
         ])
         return rot
 
-    def get_correspondence_lines(self, idx_list):
+    def get_correspondence_lines(self, pcd_s, pcd_t, idx_list):
         """ 対応点の可視化関数 """
-        np_pcd_pair = np.concatenate((self.np_pcd_src, self.np_pcd_trg))
+        np_pcd_s = np.asarray(pcd_s.points)
+        np_pcd_t = np.asarray(pcd_t.points)
+        np_pcd_pair = np.concatenate((np_pcd_s, np_pcd_t))
 
         # 始点と終点の index のリストを生成
         num_points = self.np_pcd_src.shape[0]
@@ -62,8 +70,10 @@ class ICP_Registration_Point2Point:
         # 距離を終了条件に使用するため計算
         self.distance.append(np.sqrt(np.mean(np.array(distance))))
 
+        self.closest_indices.append(idx_list)
+
         # # 対応付けの可視化
-        # line_set = self.get_correspondence_lines(idx_list)
+        # line_set = self.get_correspondence_lines(self.pcd_src, self.pcd_trg, idx_list)
         # o3d.visualization.draw_geometries(
         #     [self.pcd_src, self.pcd_trg, line_set])
 
@@ -99,11 +109,12 @@ class ICP_Registration_Point2Point:
         transformation[0:3, 0:3] = rot.copy()
         transformation[0:3, 3] = trans.copy()
 
+        self.transformations.append(transformation)
+
         return transformation
 
     def registration(self):
-        pcd_b = copy.deepcopy(self.pcd_src)
-        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+        # o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
 
         for it in range(self.num_iteration):
             # ソース点群とターゲット点群の対応付
@@ -120,8 +131,37 @@ class ICP_Registration_Point2Point:
                 if self.distance[-1] / self.distance[-2] > self.th_ratio:
                     break
 
-        self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
-        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg, pcd_b])
+        # self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
+        # o3d.visualization.draw_geometries(
+        #     [self.pcd_src, self.pcd_trg, self.pcd_before])
+
+    def visualize_icp_progress(self):
+        pcd_res = copy.deepcopy(self.pcd_before)
+        pcd_res.paint_uniform_color([1.0, 0.0, 0.0])
+        lineset_res = o3d.geometry.LineSet()
+        gen = zip(self.closest_indices, self.transformations)
+
+        def animation(vis):
+            try:
+                indices, tf = next(gen)
+            except StopIteration:
+                return False
+
+            pcd_res.transform(tf)
+            lineset = self.get_correspondence_lines(
+                pcd_res, self.pcd_trg, indices)
+
+            lineset_res.lines = lineset.lines
+            lineset_res.points = lineset.points
+
+            vis.update_geometry(pcd_res)
+            vis.update_geometry(lineset_res)
+
+            time.sleep(0.2)
+
+        o3d.visualization.draw_geometries_with_animation_callback(
+            [self.pcd_trg, pcd_res, lineset_res], animation,
+            width=640, height=500)
 
 
 def main():
@@ -137,6 +177,8 @@ def main():
 
     reg = ICP_Registration_Point2Point(pcd_src_dwn, pcd_trg_dwn)
     reg.registration()
+
+    reg.visualize_icp_progress()
 
 
 if __name__ == '__main__':
