@@ -17,7 +17,6 @@ class ICP_Registration_Point2Point:
         self.th_distance = 0.001
         self.th_ratio = 0.999
 
-
     def quaternion2rotation(self, q):
         rot = np.array([
             [q[0] ** 2 + q[1] ** 2 - q[2] ** 2 - q[3] ** 2,
@@ -51,6 +50,7 @@ class ICP_Registration_Point2Point:
         return line_set
 
     def find_closest_points(self):
+        """ 各点の一番近い点を探す """
         # ソース点群とターゲット点群の対応付け
         idx_list = []
         distance = []
@@ -59,7 +59,7 @@ class ICP_Registration_Point2Point:
             idx_list.append(idx[0])
             distance.append(d[0])
         np_pcd_y = self.np_pcd_trg[idx_list].copy()
-
+        # 距離を終了条件に使用するため計算
         self.distance.append(np.sqrt(np.mean(np.array(distance))))
 
         # # 対応付けの可視化
@@ -94,7 +94,7 @@ class ICP_Registration_Point2Point:
         rot = self.quaternion2rotation(eigen_vec[:, np.argmax(eigen_val)])
         trans = mu_y - np.dot(rot, mu_src)
 
-        # 点群の更新
+        # 同次変換行列
         transformation = np.identity(4)
         transformation[0:3, 0:3] = rot.copy()
         transformation[0:3, 3] = trans.copy()
@@ -106,10 +106,14 @@ class ICP_Registration_Point2Point:
         o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
 
         for it in range(self.num_iteration):
+            # ソース点群とターゲット点群の対応付
             np_pcd_y = self.find_closest_points()
+            # 剛体変形の推定
             transformation = self.compute_registration_param(np_pcd_y)
+            # 点群の更新
             self.pcd_src.transform(transformation)
 
+            # 収束判定
             if it > 2:
                 if self.distance[-1] < self.th_distance:
                     break
