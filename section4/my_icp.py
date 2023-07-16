@@ -5,7 +5,7 @@ import numpy as np
 import open3d as o3d
 
 
-class ICP_Registration_Point2Point:
+class ICP_Registraion:
     def __init__(self, pcd_src, pcd_trg):
         self.pcd_before = copy.deepcopy(pcd_src)
         self.pcd_src = copy.deepcopy(pcd_src)
@@ -22,22 +22,6 @@ class ICP_Registration_Point2Point:
         # 過程表示用
         self.transformations = []
         self.closest_indices = []
-
-    def quaternion2rotation(self, q):
-        rot = np.array([
-            [q[0] ** 2 + q[1] ** 2 - q[2] ** 2 - q[3] ** 2,
-             2 * (q[1] * q[2] - q[0] * q[3]),
-             2 * (q[1] * q[3] + q[0] * q[2])],
-
-            [2 * (q[1] * q[2] + q[0] * q[3]),
-             q[0] ** 2 - q[1] ** 2 + q[2] ** 2 - q[3] ** 2,
-             2 * (q[2] * q[3] - q[0] * q[1])],
-
-            [2 * (q[1] * q[3] - q[0] * q[2]),
-             2 * (q[2] * q[3] + q[0] * q[1]),
-             q[0] ** 2 - q[1] ** 2 - q[2] ** 2 + q[3] ** 2],
-        ])
-        return rot
 
     def get_correspondence_lines(self, pcd_s, pcd_t, idx_list):
         """ 対応点の可視化関数 """
@@ -56,6 +40,52 @@ class ICP_Registration_Point2Point:
         )
 
         return line_set
+
+    def visualize_icp_progress(self):
+        pcd_res = copy.deepcopy(self.pcd_before)
+        pcd_res.paint_uniform_color([1.0, 0.0, 0.0])
+        lineset_res = o3d.geometry.LineSet()
+        gen = zip(self.closest_indices, self.transformations)
+
+        def animation(vis):
+            try:
+                indices, tf = next(gen)
+            except StopIteration:
+                return False
+
+            pcd_res.transform(tf)
+            lineset = self.get_correspondence_lines(
+                pcd_res, self.pcd_trg, indices)
+
+            lineset_res.lines = lineset.lines
+            lineset_res.points = lineset.points
+
+            vis.update_geometry(pcd_res)
+            vis.update_geometry(lineset_res)
+
+            time.sleep(0.2)
+
+        o3d.visualization.draw_geometries_with_animation_callback(
+            [self.pcd_trg, pcd_res, lineset_res], animation,
+            width=640, height=500)
+
+
+class ICP_Registration_Point2Point(ICP_Registraion):
+    def quaternion2rotation(self, q):
+        rot = np.array([
+            [q[0] ** 2 + q[1] ** 2 - q[2] ** 2 - q[3] ** 2,
+             2 * (q[1] * q[2] - q[0] * q[3]),
+             2 * (q[1] * q[3] + q[0] * q[2])],
+
+            [2 * (q[1] * q[2] + q[0] * q[3]),
+             q[0] ** 2 - q[1] ** 2 + q[2] ** 2 - q[3] ** 2,
+             2 * (q[2] * q[3] - q[0] * q[1])],
+
+            [2 * (q[1] * q[3] - q[0] * q[2]),
+             2 * (q[2] * q[3] + q[0] * q[1]),
+             q[0] ** 2 - q[1] ** 2 - q[2] ** 2 + q[3] ** 2],
+        ])
+        return rot
 
     def find_closest_points(self):
         """ 各点の一番近い点を探す """
@@ -134,34 +164,6 @@ class ICP_Registration_Point2Point:
         # self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
         # o3d.visualization.draw_geometries(
         #     [self.pcd_src, self.pcd_trg, self.pcd_before])
-
-    def visualize_icp_progress(self):
-        pcd_res = copy.deepcopy(self.pcd_before)
-        pcd_res.paint_uniform_color([1.0, 0.0, 0.0])
-        lineset_res = o3d.geometry.LineSet()
-        gen = zip(self.closest_indices, self.transformations)
-
-        def animation(vis):
-            try:
-                indices, tf = next(gen)
-            except StopIteration:
-                return False
-
-            pcd_res.transform(tf)
-            lineset = self.get_correspondence_lines(
-                pcd_res, self.pcd_trg, indices)
-
-            lineset_res.lines = lineset.lines
-            lineset_res.points = lineset.points
-
-            vis.update_geometry(pcd_res)
-            vis.update_geometry(lineset_res)
-
-            time.sleep(0.2)
-
-        o3d.visualization.draw_geometries_with_animation_callback(
-            [self.pcd_trg, pcd_res, lineset_res], animation,
-            width=640, height=500)
 
 
 def main():
