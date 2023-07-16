@@ -166,6 +166,42 @@ class ICP_Registration_Point2Point(ICP_Registraion):
         #     [self.pcd_src, self.pcd_trg, self.pcd_before])
 
 
+class ICP_Registration_Point2Plane(ICP_Registraion):
+    def __init__(self, pcd_src, pcd_trg):
+        super().__init__(pcd_src, pcd_trg)
+        self.np_pcd_normal_t = np.asarray(self.pcd_trg.normals)
+
+    def find_closest_points(self):
+        """ 各点の一番近い点を探す """
+        # ソース点群とターゲット点群の対応付け
+        idx_list = []
+        distance = []
+        for p in self.pcd_src.points:
+            [_, idx, d] = self.pcd_tree.search_knn_vector_3d(p, 1)
+            idx_list.append(idx[0])
+            distance.append(d[0])
+        np_pcd_y = self.np_pcd_trg[idx_list].copy()
+        np_normal_y = self.np_pcd_normal_t[idx_list].copy()
+        # 距離を終了条件に使用するため計算
+        self.distance.append(np.sqrt(np.mean(np.array(distance))))
+
+        self.closest_indices.append(idx_list)
+
+        # # 対応付けの可視化
+        # line_set = self.get_correspondence_lines(self.pcd_src, self.pcd_trg, idx_list)
+        # o3d.visualization.draw_geometries(
+        #     [self.pcd_src, self.pcd_trg, line_set])
+
+        return np_pcd_y, np_normal_y
+
+    def registration(self):
+        # o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+
+        for it in range(self.num_iteration):
+            # ソース点群とターゲット点群の対応付
+            np_pcd_y , np_normal_y = self.find_closest_points()
+
+
 def main():
     pcd_src = o3d.io.read_point_cloud('./data/bun000.pcd')
     pcd_trg = o3d.io.read_point_cloud('./data/bun045.pcd')
