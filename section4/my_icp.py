@@ -194,6 +194,36 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
 
         return np_pcd_y, np_normal_y
 
+    def compute_rotaion_matrix(self, rotation_vector):
+        """ ロドリゲスの回転公式 """
+        theta = np.linalg.norm(rotation_vector)
+        axis = (rotation_vector / theta).reshape(-1)
+        # 歪対称行列
+        w = np.array([
+            [0.0, -axis[2], axis[1]],
+            [axis[2], 0.0, -axis[0]],
+            [-axis[1], axis[0], 0.0]
+        ])
+        return np.identity(3) + np.sin(theta) * w\
+            + ((1 - np.cos(theta)) * np.dot(w, w))
+
+    def compute_transformation_matrix(self, six_deg_vector):
+        """ 6 次元ベクトルを同時変換行列に変換 """
+        # 6 次元ベクトルの
+        # 前半 3 つ: 回転ベクトル
+        # 後半 3 つ: 並進ベクトル
+        rotation_vector, translation_vector = np.split(
+            six_deg_vector.squeeze(), 2)
+
+        # ロドリゲスの回転公式をより、回転ベクトルから回転行列を計算
+        rotation_matrix = self.compute_rotaion_matrix(rotation_vector)
+
+        # 同次変換行列
+        transformation = np.identity(4)
+        transformation[0:3, 0:3] = rotation_matrix
+        transformation[0:3, 3] = translation_vector
+        return transformation
+
     def compute_registration_param(self, np_pcd_y, np_normal_y):
         # 剛体変換の推定
         A = np.zeros((6, 6))
@@ -206,45 +236,27 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
             nT = np_normal_y[i].reshape(1, -1)
             p_x = (np_pcd_y[i] - self.np_pcd_src[i]).reshape(-1, 1)
             b += xn_n * np.dot(nT, p_x)
-
         u_opt = np.dot(np.linalg.inv(A), b)
-        theta = np.linalg.norm(u_opt[:3])
-        w = (u_opt[:3] / theta).reshape(-1)
-        rot = self.axis_angle_to_matrix(w, theta)
 
-        # 同次変換行列
-        transformation = np.identity(4)
-        transformation[0:3, 0:3] = rot.copy()
-        transformation[0:3, 3] = u_opt[3:6].reshape(-1).copy()
-
+        transformation = self.compute_transformation_matrix(u_opt)
         self.transformations.append(transformation)
-
         return transformation
 
-    def axis_angle_to_matrix(self, axis, theta):
-        """
-        Args:
-          axis(ndarray): rotation axis
-          theta(float): rotation angle
-        """
-        # 歪対称行列
-        w = np.array([
-            [0.0, -axis[2], axis[1]],
-            [axis[2], 0.0, -axis[0]],
-            [-axis[1], axis[0], 0.0]
-        ])
-        return np.identity(3) + np.sin(theta) * w\
-            + ((1 - np.cos(theta)) * np.dot(w, w))
-
     def registration(self):
-        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+        # o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
 
         for it in range(self.num_iteration):
             # ソース点群とターゲット点群の対応付
-            np_pcd_y , np_normal_y = self.find_closest_points()
+            np_pcd_y, np_normal_y = self.find_closest_points()
             # 剛体変形の推定
             transformation = self.compute_registration_param(
                 np_pcd_y, np_normal_y)
+            # 点群の更新
+            self.pcd_src.transform(transformation)
+
+        self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
+        o3d.visualization.draw_geometries(
+            [self.pcd_src, self.pcd_trg, self.pcd_before])
 
 
 def main():
