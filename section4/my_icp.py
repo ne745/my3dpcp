@@ -103,7 +103,8 @@ class ICP_Registration_Point2Point(ICP_Registraion):
         self.closest_indices.append(idx_list)
 
         # # 対応付けの可視化
-        # line_set = self.get_correspondence_lines(self.pcd_src, self.pcd_trg, idx_list)
+        # line_set = self.get_correspondence_lines(
+        #     self.pcd_src, self.pcd_trg, idx_list)
         # o3d.visualization.draw_geometries(
         #     [self.pcd_src, self.pcd_trg, line_set])
 
@@ -188,7 +189,8 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
         self.closest_indices.append(idx_list)
 
         # # 対応付けの可視化
-        # line_set = self.get_correspondence_lines(self.pcd_src, self.pcd_trg, idx_list)
+        # line_set = self.get_correspondence_lines(
+        #     self.pcd_src, self.pcd_trg, idx_list)
         # o3d.visualization.draw_geometries(
         #     [self.pcd_src, self.pcd_trg, line_set])
 
