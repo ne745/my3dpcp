@@ -169,7 +169,7 @@ class ICP_Registration_Point2Point(ICP_Registraion):
 class ICP_Registration_Point2Plane(ICP_Registraion):
     def __init__(self, pcd_src, pcd_trg):
         super().__init__(pcd_src, pcd_trg)
-        self.np_pcd_normal_t = np.asarray(self.pcd_trg.normals)
+        self.np_normal_trg = np.asarray(self.pcd_trg.normals)
 
     def find_closest_points(self):
         """ 各点の一番近い点を探す """
@@ -181,7 +181,7 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
             idx_list.append(idx[0])
             distance.append(d[0])
         np_pcd_y = self.np_pcd_trg[idx_list].copy()
-        np_normal_y = self.np_pcd_normal_t[idx_list].copy()
+        np_normal_y = self.np_normal_trg[idx_list].copy()
         # 距離を終了条件に使用するため計算
         self.distance.append(np.sqrt(np.mean(np.array(distance))))
 
