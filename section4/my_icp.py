@@ -194,12 +194,57 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
 
         return np_pcd_y, np_normal_y
 
+    def compute_registration_param(self, np_pcd_y, np_normal_y):
+        # 剛体変換の推定
+        A = np.zeros((6, 6))
+        b = np.zeros((6, 1))
+        for i in range(len(self.np_pcd_src)):
+            xn = np.cross(self.np_pcd_src[i], np_normal_y[i])
+            xn_n = np.hstack((xn, np_normal_y[i])).reshape(-1, 1)
+            A += np.dot(xn_n, xn_n.T)
+
+            nT = np_normal_y[i].reshape(1, -1)
+            p_x = (np_pcd_y[i] - self.np_pcd_src[i]).reshape(-1, 1)
+            b += xn_n * np.dot(nT, p_x)
+
+        u_opt = np.dot(np.linalg.inv(A), b)
+        theta = np.linalg.norm(u_opt[:3])
+        w = (u_opt[:3] / theta).reshape(-1)
+        rot = self.axis_angle_to_matrix(w, theta)
+
+        # 同次変換行列
+        transformation = np.identity(4)
+        transformation[0:3, 0:3] = rot.copy()
+        transformation[0:3, 3] = u_opt[3:6].reshape(-1).copy()
+
+        self.transformations.append(transformation)
+
+        return transformation
+
+    def axis_angle_to_matrix(self, axis, theta):
+        """
+        Args:
+          axis(ndarray): rotation axis
+          theta(float): rotation angle
+        """
+        # 歪対称行列
+        w = np.array([
+            [0.0, -axis[2], axis[1]],
+            [axis[2], 0.0, -axis[0]],
+            [-axis[1], axis[0], 0.0]
+        ])
+        return np.identity(3) + np.sin(theta) * w\
+            + ((1 - np.cos(theta)) * np.dot(w, w))
+
     def registration(self):
-        # o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
+        o3d.visualization.draw_geometries([self.pcd_src, self.pcd_trg])
 
         for it in range(self.num_iteration):
             # ソース点群とターゲット点群の対応付
             np_pcd_y , np_normal_y = self.find_closest_points()
+            # 剛体変形の推定
+            transformation = self.compute_registration_param(
+                np_pcd_y, np_normal_y)
 
 
 def main():
@@ -213,10 +258,10 @@ def main():
     pcd_src_dwn.paint_uniform_color([0.0, 1.0, 0.0])
     pcd_trg_dwn.paint_uniform_color([0.0, 0.0, 1.0])
 
-    reg = ICP_Registration_Point2Point(pcd_src_dwn, pcd_trg_dwn)
+    reg = ICP_Registration_Point2Plane(pcd_src_dwn, pcd_trg_dwn)
     reg.registration()
 
-    reg.visualize_icp_progress()
+    # reg.visualize_icp_progress()
 
 
 if __name__ == '__main__':
