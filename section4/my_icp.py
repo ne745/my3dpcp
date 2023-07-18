@@ -224,21 +224,42 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
         transformation[0:3, 3] = translation_vector
         return transformation
 
-    def compute_registration_param(self, np_pcd_y, np_normal_y):
+    def compute_vector_step_by_step(self, np_pcd_src, np_pcd_y, np_normal_y):
         # 剛体変換の推定
         A = np.zeros((6, 6))
         b = np.zeros((6, 1))
-        for i in range(len(self.np_pcd_src)):
-            xn = np.cross(self.np_pcd_src[i], np_normal_y[i])
+        for i in range(len(np_pcd_src)):
+            xn = np.cross(np_pcd_src[i], np_normal_y[i])
             xn_n = np.hstack((xn, np_normal_y[i])).reshape(-1, 1)
             A += np.dot(xn_n, xn_n.T)
 
             nT = np_normal_y[i].reshape(1, -1)
-            p_x = (np_pcd_y[i] - self.np_pcd_src[i]).reshape(-1, 1)
+            p_x = (np_pcd_y[i] - np_pcd_src[i]).reshape(-1, 1)
             b += xn_n * np.dot(nT, p_x)
         u_opt = np.dot(np.linalg.inv(A), b)
+        return u_opt
 
-        transformation = self.compute_transformation_matrix(u_opt)
+    def compute_vector(self, np_pcd_src, np_pcd_y, np_normal_y):
+        # ヤコビアンと残差を計算
+        num_points = len(np_pcd_y)
+        J = np.zeros((num_points, 6))
+        r = np.zeros(num_points)
+        for i in range(num_points):
+            cross_product = np.cross(np_pcd_src[i], np_normal_y[i])
+            J[i, :] = np.hstack((cross_product, np_normal_y[i]))
+            r[i] = np.dot(np_normal_y[i], np_pcd_y[i] - np_pcd_src[i])
+
+        # 最小二乗法を用いて解を求める
+        # 通常の方法で解くと、数値的な不安定性があるため、
+        # numpy.linalg.lstsqを用いて最小二乗問題を解く。
+        JtJ = np.dot(J.T, J)
+        Jtr = np.dot(J.T, r)
+        x, _, _, _ = np.linalg.lstsq(JtJ, Jtr, rcond=None)
+        return x
+
+    def compute_registration_param(self, np_pcd_y, np_normal_y):
+        x = self.compute_vector(self.np_pcd_src, np_pcd_y, np_normal_y)
+        transformation = self.compute_transformation_matrix(x)
         self.transformations.append(transformation)
         return transformation
 
