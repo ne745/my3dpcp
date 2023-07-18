@@ -275,6 +275,13 @@ class ICP_Registration_Point2Plane(ICP_Registraion):
             # 点群の更新
             self.pcd_src.transform(transformation)
 
+            # 収束判定
+            if it > 2:
+                if self.distance[-1] < self.th_distance:
+                    break
+                if self.distance[-1] / self.distance[-2] > self.th_ratio:
+                    break
+
         self.pcd_src.paint_uniform_color([1.0, 0.0, 0.0])
         o3d.visualization.draw_geometries(
             [self.pcd_src, self.pcd_trg, self.pcd_before])
