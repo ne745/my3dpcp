@@ -1,4 +1,3 @@
-import copy
 import pathlib
 
 import numpy as np
@@ -24,6 +23,23 @@ def extract_keypoint_and_feature(pcd, voxel_size):
     return keypoints, feature
 
 
+def ratio_test(src_feature, trg_feature, threshold=0.9):
+    np_src_feature = src_feature.data.T
+    np_trg_feature = trg_feature.data.T
+
+    corrs = o3d.utility.Vector2iVector()
+    for src_idx, feature in enumerate(np_src_feature):
+        distance = np.linalg.norm(np_trg_feature - feature, axis=1)
+        nearest_trg_idx = np.argmin(distance)
+        sorted_dist = np.sort(distance)
+        ratio = sorted_dist[0] / sorted_dist[1]
+        if ratio < threshold:
+            corr = np.array([[src_idx], [nearest_trg_idx]], np.int32)
+            corrs.append(corr)
+
+    return corrs
+
+
 def main():
     dpth_data = pathlib.Path('./data')
     pcd_src = o3d.io.read_point_cloud(str(dpth_data / 'cloud_bin_0.pcd'))
@@ -40,11 +56,12 @@ def main():
     src_kp, src_feature = extract_keypoint_and_feature(pcd_src, voxel_size)
     trg_kp, trg_feature = extract_keypoint_and_feature(pcd_trg, voxel_size)
 
-    src_kp.paint_uniform_color([0, 1, 0])
-    trg_kp.paint_uniform_color([0, 1, 0])
+    # src_kp.paint_uniform_color([0, 1, 0])
+    # trg_kp.paint_uniform_color([0, 1, 0])
+    # o3d.visualization.draw_geometries([pcd_src, src_kp, pcd_trg, trg_kp])
 
-    o3d.visualization.draw_geometries([pcd_src, src_kp, pcd_trg, trg_kp])
-    # o3d.visualization.draw_geometries([pcd_dst, pcd_trg])
+    corrs = ratio_test(src_feature, trg_feature)
+    print('対応点の数: ', len(corrs))
 
 
 if __name__ == '__main__':
