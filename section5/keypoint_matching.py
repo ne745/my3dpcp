@@ -40,6 +40,27 @@ def ratio_test(src_feature, trg_feature, threshold=0.9):
     return corrs
 
 
+def create_lineset_from_correspondences(corrs, pcd1, pcd2):
+    points1 = np.array(pcd1.points)
+    points2 = np.array(pcd2.points)
+
+    points = []
+    lines = []
+    colors = []
+    for i, corr in enumerate(corrs):
+        points.append(points1[corr[0]])
+        points.append(points2[corr[1]])
+        lines.append([2 * i, (2 * i) + 1])
+        colors.append(np.random.rand(3))
+
+    line_set = o3d.geometry.LineSet(
+        points=o3d.utility.Vector3dVector(points),
+        lines=o3d.utility.Vector2iVector(lines),
+    )
+    line_set.colors = o3d.utility.Vector3dVector(colors)
+    return line_set
+
+
 def main():
     dpth_data = pathlib.Path('./data')
     pcd_src = o3d.io.read_point_cloud(str(dpth_data / 'cloud_bin_0.pcd'))
@@ -56,12 +77,14 @@ def main():
     src_kp, src_feature = extract_keypoint_and_feature(pcd_src, voxel_size)
     trg_kp, trg_feature = extract_keypoint_and_feature(pcd_trg, voxel_size)
 
-    # src_kp.paint_uniform_color([0, 1, 0])
-    # trg_kp.paint_uniform_color([0, 1, 0])
-    # o3d.visualization.draw_geometries([pcd_src, src_kp, pcd_trg, trg_kp])
-
-    corrs = ratio_test(src_feature, trg_feature)
+    corrs = ratio_test(src_feature, trg_feature, 0.9)
     print('対応点の数: ', len(corrs))
+
+    line_set = create_lineset_from_correspondences(corrs, src_kp, trg_kp)
+    src_kp.paint_uniform_color([0, 1, 0])
+    trg_kp.paint_uniform_color([0, 1, 0])
+    o3d.visualization.draw_geometries(
+        [pcd_src, src_kp, pcd_trg, trg_kp, line_set])
 
 
 if __name__ == '__main__':
