@@ -6,4 +6,8 @@
     "python.analysis.extraPaths": [
         "./venv/lib/python3.9/site-packages",
     ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "python.formatting.provider": "none",
 }

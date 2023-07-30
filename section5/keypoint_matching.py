@@ -86,6 +86,13 @@ def main():
     o3d.visualization.draw_geometries(
         [pcd_src, src_kp, pcd_trg, trg_kp, line_set])
 
+    trans_ptp = o3d.pipelines.registration.\
+        TransformationEstimationPointToPoint(False)
+    transformation = trans_ptp.compute_transformation(src_kp, trg_kp, corrs)
+    pcd_src.transform(transformation)
+    o3d.visualization.draw_geometries(
+        [pcd_src, pcd_trg])
+
 
 if __name__ == '__main__':
     main()
