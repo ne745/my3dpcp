@@ -76,20 +76,42 @@ def main():
     voxel_size = 0.1
     src_kp, src_feature = extract_keypoint_and_feature(pcd_src, voxel_size)
     trg_kp, trg_feature = extract_keypoint_and_feature(pcd_trg, voxel_size)
-
     corrs = ratio_test(src_feature, trg_feature, 0.9)
-    print('対応点の数: ', len(corrs))
 
-    line_set = create_lineset_from_correspondences(corrs, src_kp, trg_kp)
-    src_kp.paint_uniform_color([0, 1, 0])
-    trg_kp.paint_uniform_color([0, 1, 0])
-    o3d.visualization.draw_geometries(
-        [pcd_src, src_kp, pcd_trg, trg_kp, line_set])
+    # line_set = create_lineset_from_correspondences(corrs, src_kp, trg_kp)
+    # o3d.visualization.draw_geometries(
+    #     [pcd_src, src_kp, pcd_trg, trg_kp, line_set])
+    # trans_ptp = o3d.pipelines.registration.\
+    #     TransformationEstimationPointToPoint(False)
+    # transformation = trans_ptp.compute_transformation(src_kp, trg_kp, corrs)
+    # pcd_src.transform(transformation)
+    # o3d.visualization.draw_geometries(
+    #     [pcd_src, pcd_trg])
 
-    trans_ptp = o3d.pipelines.registration.\
+    distance_threshold = voxel_size * 1.5
+    method = o3d.pipelines.registration.\
         TransformationEstimationPointToPoint(False)
-    transformation = trans_ptp.compute_transformation(src_kp, trg_kp, corrs)
-    pcd_src.transform(transformation)
+    checkers = [
+        o3d.pipelines.registration.
+        CorrespondenceCheckerBasedOnEdgeLength(0.9),
+        o3d.pipelines.registration.
+        CorrespondenceCheckerBasedOnDistance(distance_threshold),
+    ]
+    criteria = o3d.pipelines.registration.\
+        RANSACConvergenceCriteria(100000, 0.999)
+    result = o3d.pipelines.registration.\
+        registration_ransac_based_on_correspondence(
+            src_kp, trg_kp, corrs, distance_threshold,
+            estimation_method=method,
+            ransac_n=3,
+            checkers=checkers,
+            criteria=criteria
+        )
+    # line_set = create_lineset_from_correspondences(
+    #     result.correspondence_set, src_kp, trg_kp)
+    # o3d.visualization.draw_geometries(
+    #     [pcd_src, pcd_trg, line_set])
+    pcd_src.transform(result.transformation)
     o3d.visualization.draw_geometries(
         [pcd_src, pcd_trg])
 
